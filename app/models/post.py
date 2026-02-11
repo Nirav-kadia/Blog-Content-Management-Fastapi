@@ -14,6 +14,7 @@ class Post(Base):
     title = Column(String(255), index=True, nullable=False)
     content = Column(Text, nullable=False)
     status = Column(Enum(PostStatus), default=PostStatus.DRAFT)
+    image = Column(String, nullable=True)
 
     author_id = Column(Integer, ForeignKey("users.id"))
 

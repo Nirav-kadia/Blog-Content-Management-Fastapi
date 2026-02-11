@@ -3,8 +3,13 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.post import Post, PostStatus
+from app.models.user import User
 from app.schemas.post import PostCreate, PostUpdate
 from app.dependencies.permissions import require_admin , is_owner_or_admin
+from app.schemas.post import PostResponse
+from fastapi import UploadFile, File
+import shutil
+import os
 
 router = APIRouter(prefix="/posts", tags=["Posts"])
 
@@ -28,7 +33,7 @@ def create_post(
     return post
 
 @router.get("/")
-def get_posts(db: Session = Depends(get_db)):
+def get_posts(db: Session = Depends(get_db),response_model=list[PostResponse]):
     return db.query(Post).filter(
         Post.status == PostStatus.PUBLISHED,
         Post.is_deleted == False
@@ -138,5 +143,33 @@ def delete_post(post_id:int,db:Session = Depends(get_db),user=Depends(get_curren
 
     return {"msg":"message deleted."}
 
+@router.post("/{post_id}/upload-image")
+def upload_post_image(
+    post_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user = Depends(get_current_user)
+):
 
+    post = db.query(Post).filter(Post.id == post_id).first()
 
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    filename = f"{post_id}_{file.filename}"
+    filepath = os.path.join("uploads/posts", filename)
+
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    post.image = filepath
+    db.commit()
+    db.refresh(post)
+
+    return {
+        "message": "Image uploaded successfully",
+        "image_url": f"/{filepath}"
+    }

@@ -20,6 +20,7 @@ class PostResponse(PostBase):
     id: int
     status: PostStatus
     author_id: int
+    image: str | None = None
 
     class Config:
         from_attributes = True
